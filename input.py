@@ -1,16 +1,15 @@
+import json
 import pandas as pd
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 
-# Configuration Halaman Streamlit
 st.set_page_config(
     page_title="Sistem Manajemen Data & Credential", 
     page_icon="🔒", 
     layout="wide"
 )
 
-# 1. AUTENTIKASI PASSWORD
 APP_PASSWORD = "BananaPineaple100%"
 
 if "authenticated" not in st.session_state:
@@ -36,26 +35,16 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 
-# 2. KONEKSI KE GOOGLE SHEETS
 @st.cache_resource
 def init_connection():
     scope = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-    if "gcp_service_account" in st.secrets:
-        creds_dict = dict(st.secrets["gcp_service_account"])
-        
-        # Penanganan kunci private jika tersimpan sebagai string bergaris baru
-        p_key = creds_dict.get("private_key", "")
-        if isinstance(p_key, list):
-            creds_dict["private_key"] = "\n".join(p_key)
-        elif isinstance(p_key, str):
-            creds_dict["private_key"] = p_key.replace("\\n", "\n")
-
-        creds = Credentials.from_service_account_info(
-            creds_dict, scopes=scope
-        )
+    if "gcp_service_account" in st.secrets and "json_data" in st.secrets["gcp_service_account"]:
+        # Parse langsung dari string JSON mentah
+        json_info = json.loads(st.secrets["gcp_service_account"]["json_data"])
+        creds = Credentials.from_service_account_info(json_info, scopes=scope)
     else:
         creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
 
@@ -63,7 +52,6 @@ def init_connection():
     return client
 
 
-# Function dengan cache untuk membaca data dari sheet
 @st.cache_data(ttl=60)
 def fetch_sheet_data(sheet_id):
     client = init_connection()
@@ -82,7 +70,6 @@ except Exception as e:
 
 st.title("🔒 Sistem Manajemen Data & Credential")
 
-# LIST KATEGORI OPSI
 KATEGORI_OPTIONS = [
     "Perbankan & Keuangan",
     "Akademis & Pendidikan",
@@ -95,7 +82,6 @@ KATEGORI_OPTIONS = [
 
 tab1, tab2 = st.tabs(["📝 Input Data Baru", "🔍 Pencarian Data"])
 
-# 3. TAB INPUT DATA
 with tab1:
     st.subheader("Form Input Data Baru")
 
@@ -154,7 +140,6 @@ with tab1:
                 except Exception as err:
                     st.error(f"❌ Gagal menyimpan data: {err}")
 
-# 4. TAB PENCARIAN DATA
 with tab2:
     st.subheader("Pencarian Data Credential")
 
