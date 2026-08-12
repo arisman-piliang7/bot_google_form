@@ -53,12 +53,10 @@ def init_connection():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-    # Membaca kredensial dari Streamlit Secrets (Format json_data)
     if "gcp_service_account" in st.secrets and "json_data" in st.secrets["gcp_service_account"]:
         json_info = json.loads(st.secrets["gcp_service_account"]["json_data"])
         creds = Credentials.from_service_account_info(json_info, scopes=scope)
     else:
-        # Fallback lokal jika ada file credentials.json
         creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
 
     client = gspread.authorize(creds)
@@ -82,7 +80,7 @@ except Exception as e:
     st.error(f"Gagal terhubung ke Google Sheets: {e}")
     st.stop()
 
-# JUDUL DI HALAMAN UTAMA (SETELAH LOGIN)
+# JUDUL DI HALAMAN UTAMA
 st.title("🔒 Sistem Manajemen Data & Credential")
 
 # LIST KATEGORI OPSI
@@ -96,7 +94,7 @@ KATEGORI_OPTIONS = [
     "Hiburan, Sosmed & Properti",
 ]
 
-tab1, tab2 = st.tabs(["📝 Input Data Baru", "🔍 Pencarian Data"])
+tab1, tab2 = st.tabs(["📝 Input Data Baru", "🔍 Pencarian & Kelola Data"])
 
 # 3. TAB INPUT DATA
 with tab1:
@@ -157,9 +155,9 @@ with tab1:
                 except Exception as err:
                     st.error(f"❌ Gagal menyimpan data: {err}")
 
-# 4. TAB PENCARIAN DATA
+# 4. TAB PENCARIAN & KELOLA DATA (EDIT & HAPUS)
 with tab2:
-    st.subheader("Pencarian Data Credential")
+    st.subheader("Pencarian & Kelola Data Credential")
 
     search_keyword = st.text_input(
         "Masukkan kata kunci (Kategori, Nama Layanan, atau Username):"
@@ -170,30 +168,111 @@ with tab2:
         if len(data) >= 2:
             headers = ["Kategori", "Nama Layanan", "URL / Link", "Username / Email / ID", "Password / PIN", "Detail / No. HP", "Catatan"]
             
-            # Ambil baris data (mengabaikan baris judul di spreadsheet)
-            raw_data = data[2:] if len(data) > 2 else data[1:]
+            # Memasang indeks baris asli Google Sheets (Dimulai dari baris 3 jika ada header berlipat)
+            start_row = 3 if len(data) > 2 and data[1][0] == "Kategori" else 2
             
-            df = pd.DataFrame(raw_data)
+            rows_data = []
+            for idx, row in enumerate(data[start_row - 1:], start=start_row):
+                # Filter agar baris header tidak ikut terbaca
+                if row and row[0] != "Kategori":
+                    rows_data.append({"Sheet_Row": idx, "data": row})
             
-            # Pengecekan jumlah kolom agar sesuai dengan header standar
-            if df.shape[1] < len(headers):
-                for i in range(len(headers) - df.shape[1]):
-                    df[df.shape[1] + i] = "-"
-            df = df.iloc[:, :len(headers)]
-            df.columns = headers
+            # Konversi ke DataFrame
+            parsed_rows = []
+            for item in rows_data:
+                r = item["data"]
+                # Normalisasi panjang kolom
+                while len(r) < len(headers):
+                    r.append("-")
+                r_dict = {"Sheet_Row": item["Sheet_Row"]}
+                for h, val in zip(headers, r[:len(headers)]):
+                    r_dict[h] = val
+                parsed_rows.append(r_dict)
 
-            if search_keyword:
-                mask = df.apply(
-                    lambda row: row.astype(str).str.contains(
-                        search_keyword, case=False, na=False
-                    )
-                ).any(axis=1)
-                df_filtered = df[mask]
+            df = pd.DataFrame(parsed_rows)
+
+            if not df.empty:
+                # Filter Pencarian
+                if search_keyword:
+                    mask = df[headers].apply(
+                        lambda row: row.astype(str).str.contains(
+                            search_keyword, case=False, na=False
+                        )
+                    ).any(axis=1)
+                    df_filtered = df[mask]
+                else:
+                    df_filtered = df
+
+                st.write(f"Menampilkan **{len(df_filtered)}** data:")
+                # Tampilkan tabel tanpa kolom Sheet_Row
+                st.dataframe(df_filtered[headers], use_container_width=True, hide_index=True)
+
+                st.markdown("---")
+                st.subheader("🛠️ Aksi Edit / Hapus Data")
+
+                # Pilihan Baris Data untuk Diubah
+                option_map = {
+                    f"Baris {row['Sheet_Row']} | {row['Kategori']} - {row['Nama Layanan']} ({row['Username / Email / ID']})": row
+                    for _, row in df_filtered.iterrows()
+                }
+
+                selected_option = st.selectbox(
+                    "Pilih data yang ingin diedit atau dihapus:",
+                    ["-- Pilih Data --"] + list(option_map.keys())
+                )
+
+                if selected_option != "-- Pilih Data --":
+                    selected_data = option_map[selected_option]
+                    row_index = int(selected_data["Sheet_Row"])
+
+                    action = st.radio("Pilih Aksi:", ["Edit Data", "Hapus Data"], horizontal=True)
+
+                    # FITUR EDIT DATA
+                    if action == "Edit Data":
+                        with st.form("edit_form"):
+                            st.info(f"Mengedit data pada **Baris Ke-{row_index}**")
+                            col_e1, col_e2 = st.columns(2)
+
+                            with col_e1:
+                                edit_kategori = st.text_input("Kategori", value=selected_data["Kategori"])
+                                edit_layanan = st.text_input("Nama Layanan / Platform", value=selected_data["Nama Layanan"])
+                                edit_url = st.text_input("URL / Link Akses", value=selected_data["URL / Link"])
+                                edit_username = st.text_input("Username / Email / ID", value=selected_data["Username / Email / ID"])
+
+                            with col_e2:
+                                edit_password = st.text_input("Password / PIN", value=selected_data["Password / PIN"])
+                                edit_detail = st.text_input("No. HP / Rekening / Detail", value=selected_data["Detail / No. HP"])
+                                edit_catatan = st.text_area("Catatan / Keterangan", value=selected_data["Catatan"])
+
+                            btn_update = st.form_submit_button("Simpan Perubahan", use_container_width=True)
+
+                            if btn_update:
+                                try:
+                                    updated_row = [
+                                        edit_kategori, edit_layanan, edit_url, 
+                                        edit_username, edit_password, edit_detail, edit_catatan
+                                    ]
+                                    # Update cell spesifik di Google Sheets
+                                    sheet.update(f"A{row_index}:G{row_index}", [updated_row])
+                                    st.success(f"✅ Data baris ke-{row_index} berhasil diperbarui!")
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                except Exception as err:
+                                    st.error(f"❌ Gagal memperbarui data: {err}")
+
+                    # FITUR HAPUS DATA
+                    elif action == "Hapus Data":
+                        st.warning(f"⚠️ Anda yakin ingin menghapus permanent data **{selected_data['Nama Layanan']}** (Baris ke-{row_index})?")
+                        if st.button("🔴 Ya, Hapus Data Ini", use_container_width=True):
+                            try:
+                                sheet.delete_rows(row_index)
+                                st.success("✅ Data berhasil dihapus dari Google Sheets!")
+                                st.cache_data.clear()
+                                st.rerun()
+                            except Exception as err:
+                                st.error(f"❌ Gagal menghapus data: {err}")
             else:
-                df_filtered = df
-
-            st.write(f"Menampilkan **{len(df_filtered)}** data:")
-            st.dataframe(df_filtered, use_container_width=True, hide_index=True)
+                st.info("Belum ada data di spreadsheet.")
         else:
             st.info("Belum ada data di spreadsheet.")
 
