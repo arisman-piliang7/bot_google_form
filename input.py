@@ -18,13 +18,9 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    # JUDUL & SUBTITLE DI HALAMAN LOGIN
+    # JUDUL HALAMAN LOGIN
     st.markdown(
         "<h2 style='text-align: center;'>Password Safer 1.0</h2>", unsafe_allow_html=True
-    )
-    st.markdown(
-        "<p style='text-align: center; color: gray; font-size: 14px;'>Designed by Arisman</p>", 
-        unsafe_allow_html=True
     )
     
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -86,9 +82,8 @@ except Exception as e:
     st.error(f"Gagal terhubung ke Google Sheets: {e}")
     st.stop()
 
-# JUDUL & SUBTITLE DI HALAMAN UTAMA (SETELAH LOGIN)
+# JUDUL DI HALAMAN UTAMA (SETELAH LOGIN)
 st.title("🔒 Sistem Manajemen Data & Credential")
-st.caption("Designed by Arisman")
 
 # LIST KATEGORI OPSI
 KATEGORI_OPTIONS = [
@@ -205,7 +200,7 @@ with tab2:
     except Exception as e:
         st.error(f"Gagal mengambil data dari Google Sheets: {e}")
 
-# 5. FOOTER DI BAGIAN PALING BAWAH (SETELAH LOGIN)
+# 5. FOOTER DI BAGIAN PALING BAWAH
 st.markdown("---")
 st.markdown(
     "<p style='text-align: center; color: gray; font-size: 13px;'>Password Safer v1.0 &bull; Designed by Arisman</p>", 
