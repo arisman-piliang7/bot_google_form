@@ -43,18 +43,20 @@ def init_connection():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-    # Membaca kredensial dari Streamlit Secrets
     if "gcp_service_account" in st.secrets:
         creds_dict = dict(st.secrets["gcp_service_account"])
-        # Mengatasi format newline '\\n' agar valid secara kriptografi di Google API
-        if "private_key" in creds_dict:
-            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
         
+        # Penanganan kunci private jika tersimpan sebagai string bergaris baru
+        p_key = creds_dict.get("private_key", "")
+        if isinstance(p_key, list):
+            creds_dict["private_key"] = "\n".join(p_key)
+        elif isinstance(p_key, str):
+            creds_dict["private_key"] = p_key.replace("\\n", "\n")
+
         creds = Credentials.from_service_account_info(
             creds_dict, scopes=scope
         )
     else:
-        # Fallback lokal jika ada file credentials.json
         creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
 
     client = gspread.authorize(creds)
@@ -148,7 +150,6 @@ with tab1:
                     st.success(
                         f"✅ Data berhasil disimpan pada baris ke-{last_row_index}!"
                     )
-                    # Bersihkan cache agar data terbaru langsung kelihatan di tab pencarian
                     st.cache_data.clear()
                 except Exception as err:
                     st.error(f"❌ Gagal menyimpan data: {err}")
