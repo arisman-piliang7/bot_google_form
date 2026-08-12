@@ -189,3 +189,10 @@ with tab2:
 
     except Exception as e:
         st.error(f"Gagal mengambil data dari Google Sheets: {e}")
+
+# 5. FOOTER DI BAGIAN PALING BAWAH
+st.markdown("---")
+st.markdown(
+    "<p style='text-align: center; color: gray; font-size: 13px;'>Password Safer v1.0 &bull; Designed by Arisman</p>", 
+    unsafe_allow_html=True
+)
