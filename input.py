@@ -5,7 +5,9 @@ from google.oauth2.service_account import Credentials
 
 # Configuration Halaman Streamlit
 st.set_page_config(
-    page_title="Sistem Manajemen Data & Credential", page_icon="🔒", layout="wide"
+    page_title="Sistem Manajemen Data & Credential", 
+    page_icon="🔒", 
+    layout="wide"
 )
 
 # 1. AUTENTIKASI PASSWORD
@@ -43,8 +45,13 @@ def init_connection():
     ]
     # Membaca kredensial dari Streamlit Secrets
     if "gcp_service_account" in st.secrets:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        # Mengatasi format newline '\\n' agar valid secara kriptografi di Google API
+        if "private_key" in creds_dict:
+            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        
         creds = Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"], scopes=scope
+            creds_dict, scopes=scope
         )
     else:
         # Fallback lokal jika ada file credentials.json
