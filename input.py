@@ -19,7 +19,7 @@ if "authenticated" not in st.session_state:
 
 if not st.session_state["authenticated"]:
     st.markdown(
-        "<h2 style='text-align: center;'>Akses Terbatas</h2>", unsafe_allow_html=True
+        "<h2 style='text-align: center;'>Password Safer 1.0</h2>", unsafe_allow_html=True
     )
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
