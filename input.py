@@ -4,12 +4,14 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 
+# Configuration Halaman Streamlit
 st.set_page_config(
     page_title="Sistem Manajemen Data & Credential", 
     page_icon="🔒", 
     layout="wide"
 )
 
+# 1. AUTENTIKASI PASSWORD
 APP_PASSWORD = "BananaPineaple100%"
 
 if "authenticated" not in st.session_state:
@@ -35,23 +37,26 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 
+# 2. KONEKSI KE GOOGLE SHEETS
 @st.cache_resource
 def init_connection():
     scope = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
+    # Membaca kredensial dari Streamlit Secrets (Format json_data)
     if "gcp_service_account" in st.secrets and "json_data" in st.secrets["gcp_service_account"]:
-        # Parse langsung dari string JSON mentah
         json_info = json.loads(st.secrets["gcp_service_account"]["json_data"])
         creds = Credentials.from_service_account_info(json_info, scopes=scope)
     else:
+        # Fallback lokal jika ada file credentials.json
         creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
 
     client = gspread.authorize(creds)
     return client
 
 
+# Function dengan cache untuk membaca data dari sheet
 @st.cache_data(ttl=60)
 def fetch_sheet_data(sheet_id):
     client = init_connection()
@@ -70,6 +75,7 @@ except Exception as e:
 
 st.title("🔒 Sistem Manajemen Data & Credential")
 
+# LIST KATEGORI OPSI
 KATEGORI_OPTIONS = [
     "Perbankan & Keuangan",
     "Akademis & Pendidikan",
@@ -82,6 +88,7 @@ KATEGORI_OPTIONS = [
 
 tab1, tab2 = st.tabs(["📝 Input Data Baru", "🔍 Pencarian Data"])
 
+# 3. TAB INPUT DATA
 with tab1:
     st.subheader("Form Input Data Baru")
 
@@ -140,6 +147,7 @@ with tab1:
                 except Exception as err:
                     st.error(f"❌ Gagal menyimpan data: {err}")
 
+# 4. TAB PENCARIAN DATA
 with tab2:
     st.subheader("Pencarian Data Credential")
 
@@ -149,9 +157,20 @@ with tab2:
 
     try:
         data = fetch_sheet_data(SHEET_ID)
-        if len(data) >= 4:
-            headers = data[2]
-            df = pd.DataFrame(data[3:], columns=headers)
+        if len(data) >= 2:
+            headers = ["Kategori", "Nama Layanan", "URL / Link", "Username / Email / ID", "Password / PIN", "Detail / No. HP", "Catatan"]
+            
+            # Ambil baris data (mengabaikan baris judul di spreadsheet)
+            raw_data = data[2:] if len(data) > 2 else data[1:]
+            
+            df = pd.DataFrame(raw_data)
+            
+            # Pengecekan jumlah kolom agar sesuai dengan header standar
+            if df.shape[1] < len(headers):
+                for i in range(len(headers) - df.shape[1]):
+                    df[df.shape[1] + i] = "-"
+            df = df.iloc[:, :len(headers)]
+            df.columns = headers
 
             if search_keyword:
                 mask = df.apply(
